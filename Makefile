@@ -3,7 +3,7 @@ all: complexN
 complexN: main.o	complexNumber.o
 	g++ -o complexN	main.o	complexNumber.o
 
-complexNumber.o: complexNumbere.cpp	complexNumber.h
+complexNumber.o: complexNumber.cpp	complexNumber.h
 	g++ -c complexNumber.cpp
 
 main.o: main.cpp
