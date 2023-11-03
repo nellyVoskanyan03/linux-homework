@@ -4,11 +4,13 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <string.h>
 #include <unistd.h>
 #include <errno.h>
 #include <sstream>
 #include <cstdlib>
+#include <cerrno>
+#include <cmath>
+#include <limits>
 
 
 int main(int argc, char* argv[]) {
@@ -28,11 +30,6 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-    //get source file size
-    struct stat openStat;
-    fstat(sourceFile, &openStat);
-    off_t sourceFileSize = openStat.st_size;
-
     //Open destination file
     int destinationFile = open(destinationPath, O_WRONLY);
     if (destinationFile < 0) {
@@ -40,30 +37,98 @@ int main(int argc, char* argv[]) {
         exit(1);
     }
 
-    char buffer[512] = { 0 };
+    //clear the file
+    ftruncate(destinationFile, 0);
+
+    //buffer
+    int const bufferSize = 512;
+    char* buffer = new char[bufferSize];
+
+    //counters
     int dataBytesCopied = 0;
     int holeBytesCopied = 0;
 
-    //Clear Destination file
-    ftruncate(destinationFile, 0);
+    //pointer
+    int last = 0;
 
-    int readBytesCount = read(sourceFile, buffer, sourceFileSize);
 
-    for (int i = 0; i < readBytesCount; ++i) {
-        if (buffer[i] == '\0') {
-            holeBytesCopied++;
+
+    // go over file
+    while (true) {
+
+        // try jump to next beginning of hole
+        off_t data = lseek(sourceFile, last, SEEK_HOLE);        
+
+        // there was some data if we got to next hole
+        if (data > 0) {
+
+            //update counter
+            dataBytesCopied += data - last;
+
+            //read the data
+            lseek(sourceFile, last, SEEK_SET);
+            while (true) {
+
+                int bytesToWrite = std::min((int)data - last, bufferSize);
+
+                read(sourceFile, buffer, bytesToWrite);
+
+                if (bytesToWrite == 0) {
+                    break;
+                }
+
+                lseek(destinationFile, last, SEEK_SET);
+                write(destinationFile, buffer, bytesToWrite);
+
+                last += bytesToWrite;
+
+            }
+
         }
-        else {
-            dataBytesCopied++;
+
+
+        // reached the end of file
+        if (data == 0 || (data == -1 && errno == ENXIO)) {
+            break;
+        }
+
+        // something went wrong
+        if (data < 0) {
+            std::cerr << "Something went wrong1. " << strerror(errno) << std::endl;
+            exit(errno);
+        }
+
+        // try find next data jumping over a hole
+        off_t hole = lseek(sourceFile, last, SEEK_DATA);
+
+        // reached the end no data to read
+        if (hole == -1 && errno == ENXIO) {
+            break;
+        }
+
+        // something went wrong
+        if (hole == -1) {
+            std::cerr << "Something went wrong. " << strerror(errno) << std::endl;
+            exit(errno);
+        }
+
+        if (hole > 0) {
+            //create hole
+            lseek(destinationFile, hole - last, SEEK_END);
+
+            //update counter
+            holeBytesCopied += hole - last;
+
+            // move pointer
+            last = hole;
         }
     }
-    write(destinationFile, buffer, sourceFileSize);
 
-
+    //close the files
     close(sourceFile);
     close(destinationFile);
 
-    std::cout << "Successfully copied " << dataBytesCopied + holeBytesCopied
+    std::cout << "Successfully copied " << last
         << " bytes (data: " << dataBytesCopied
         << ", hole: " << holeBytesCopied << ")." << std::endl;
 
