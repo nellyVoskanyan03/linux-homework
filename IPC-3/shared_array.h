@@ -27,5 +27,7 @@ public:
   bool operator==(const shared_array &other);
 
   int& operator[](int index);
+
+  ~shared_array();
 };
 #endif // SHARED_ARRAY_H

@@ -8,7 +8,7 @@ const char *semaphore = "/sem";
 int main(int argc, char** argv) {
 
   
-  int size = 23;
+    int size = 23;
     shared_array array("arr", size);
     for(int i = 0; i < size; ++i){
             array[i] = i;
@@ -43,5 +43,5 @@ int main(int argc, char** argv) {
     sem_close(sem);
     sem_unlink(semaphore);
 
-  return 0;
+    return 0;
 }

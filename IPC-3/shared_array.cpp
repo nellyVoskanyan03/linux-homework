@@ -11,7 +11,7 @@
 
 # define PAGE_SIZE 4096
 
- shared_array::shared_array(std::string _array_name, int _size): size(_size) { 
+shared_array::shared_array(std::string _array_name, int _size): size(_size) { 
     // create shared file
     this->array_name = (_array_name + "_" + std::to_string(size)).c_str();
     
@@ -39,20 +39,21 @@
                     MAP_SHARED, 
                     fd, 
                     0);
-    
-    //if(this->array = (int*)-1){
-   //     std::cerr << strerror(errno) << std::endl;
-    //    exit(1);
-   // }
 
 
- }
+}
 
-  bool shared_array::operator==(const shared_array &other) {
+bool shared_array::operator==(const shared_array &other) {
     return this->array_name == other.array_name && this->size == other.size;
-  }
+}
 
-  int& shared_array::operator[](int index) {
+int& shared_array::operator[](int index) {
     //get element from shared memory
     return this->array[index];
-  }
+}
+
+shared_array::~shared_array() {
+    munmap(this_array, 4096);
+    close(fd);
+}
+
